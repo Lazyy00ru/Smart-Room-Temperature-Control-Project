@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Temperature Control System</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0c4a6e 0%, #0891b2 40%, #06b6d4 70%, #fb923c 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #1f2937;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        /* Header */
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            animation: fadeInDown 0.8s ease;
+        }
+        
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 3px 3px 8px rgba(0,0,0,0.3);
+            font-weight: 800;
+            letter-spacing: -1px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.95;
+            font-weight: 300;
+        }
+        
+        /* Status Bar */
+        .status-bar {
+            background: white;
+            padding: 25px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: fadeIn 1s ease;
+            border: 3px solid #67e8f9;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .status-light {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-light.online {
+            background: #10b981;
+            box-shadow: 0 0 20px #10b981;
+        }
+        
+        .status-light.warning {
+            background: #fb923c;
+            box-shadow: 0 0 20px #fb923c;
+        }
+        
+        .status-light.alarm {
+            background: #f43f5e;
+            box-shadow: 0 0 20px #f43f5e;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.15); }
+        }
+        
+        .mode-badge {
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 1em;
+            letter-spacing: 0.5px;
+        }
+        
+        .mode-badge.auto {
+            background: linear-gradient(135deg, #0891b2, #0e7490);
+            color: white;
+            box-shadow: 0 6px 15px rgba(8, 145, 178, 0.4);
+        }
+        
+        .mode-badge.manual {
+            background: linear-gradient(135deg, #fb923c, #f97316);
+            color: white;
+            box-shadow: 0 6px 15px rgba(251, 146, 60, 0.4);
+        }
+        
+        /* Grid Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+        
+        /* Cards */
+        .card {
+            background: white;
+            padding: 35px;
+            border-radius: 25px;
+            box-shadow: 0 15px 45px rgba(0,0,0,0.12);
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.8s ease;
+            border: 3px solid transparent;
+        }
+        
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 25px 60px rgba(0,0,0,0.2);
+            border-color: #a5f3fc;
+        }
+        
+        .card h2 {
+            margin-bottom: 25px;
+            background: linear-gradient(135deg, #0891b2, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 1.6em;
+            font-weight: 800;
+            border-bottom: 4px solid;
+            border-image: linear-gradient(90deg, #0891b2, #06b6d4, #fb923c) 1;
+            padding-bottom: 12px;
+        }
+        
+        /* Temperature Display */
+        .sensor-value {
+            font-size: 5.5em;
+            font-weight: 900;
+            text-align: center;
+            margin: 40px 0;
+            transition: all 0.5s ease;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.08);
+        }
+        
+        .temp-value {
+            background: linear-gradient(135deg, #f43f5e, #fb7185);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .humidity-value {
+            background: linear-gradient(135deg, #0891b2, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .sensor-label {
+            text-align: center;
+            color: #64748b;
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        /* LED Indicators */
+        .led-status {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 25px;
+            padding: 25px;
+            background: linear-gradient(135deg, #f0fdfa, #ccfbf1);
+            border-radius: 15px;
+            border: 2px solid #5eead4;
+        }
+        
+        .led-indicator {
+            text-align: center;
+        }
+        
+        .led-light {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            transition: all 0.3s ease;
+            border: 4px solid rgba(255,255,255,0.5);
+        }
+        
+        .led-light.red {
+            background: linear-gradient(135deg, #f43f5e, #fb7185);
+            box-shadow: 0 0 30px #f43f5e, inset 0 0 10px rgba(255,255,255,0.5);
+        }
+        
+        .led-light.red.off {
+            background: #fecdd3;
+            box-shadow: none;
+            border-color: #f9a8d4;
+        }
+        
+        .led-light.blue {
+            background: linear-gradient(135deg, #0891b2, #06b6d4);
+            box-shadow: 0 0 30px #06b6d4, inset 0 0 10px rgba(255,255,255,0.5);
+        }
+        
+        .led-light.blue.off {
+            background: #a5f3fc;
+            box-shadow: none;
+            border-color: #67e8f9;
+        }
+        
+        .led-light.blinking {
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.2; transform: scale(0.95); }
+        }
+        
+        .led-label {
+            font-weight: 700;
+            font-size: 1em;
+            color: #0e7490;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Threshold Info */
+        .threshold-info {
+            background: linear-gradient(135deg, #ecfeff, #cffafe);
+            padding: 25px;
+            border-radius: 15px;
+            margin-top: 25px;
+            border-left: 6px solid #0891b2;
+            box-shadow: 0 4px 15px rgba(8, 145, 178, 0.1);
+        }
+        
+        .threshold-info p {
+            margin: 10px 0;
+            color: #0c4a6e;
+            font-weight: 600;
+            font-size: 1.05em;
+        }
+        
+        .threshold-value {
+            font-weight: 900;
+            color: #fb923c;
+            font-size: 1.25em;
+        }
+        
+        /* Control Buttons */
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 18px 35px;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+            letter-spacing: 0.5px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            text-transform: uppercase;
+        }
+        
+        .btn:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-on {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+        
+        .btn-off {
+            background: linear-gradient(135deg, #f43f5e, #e11d48);
+        }
+        
+        .btn-auto {
+            background: linear-gradient(135deg, #0891b2, #0e7490);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Settings Form */
+        .settings-form {
+            display: grid;
+            gap: 25px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .form-group label {
+            font-weight: 700;
+            color: #0c4a6e;
+            font-size: 1.1em;
+        }
+        
+        .form-group input {
+            padding: 18px;
+            border: 3px solid #a5f3fc;
+            border-radius: 12px;
+            font-size: 1.2em;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            background: #f0fdfa;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #0891b2;
+            box-shadow: 0 0 0 4px rgba(8, 145, 178, 0.15);
+            background: white;
+        }
+        
+        .form-group small {
+            color: #64748b;
+            font-size: 0.95em;
+            font-weight: 500;
+        }
+        
+        /* Chart */
+        .chart-card {
+            grid-column: 1 / -1;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 380px;
+            margin-top: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f0fdfa, #ecfeff);
+            border-radius: 15px;
+        }
+        
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 25px;
+            right: 25px;
+            background: white;
+            padding: 25px 30px;
+            border-radius: 18px;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.25);
+            display: none;
+            align-items: center;
+            gap: 20px;
+            z-index: 1000;
+            max-width: 420px;
+            animation: slideIn 0.4s ease;
+        }
+        
+        .notification.show {
+            display: flex;
+        }
+        
+        .notification.success {
+            border-left: 8px solid #10b981;
+        }
+        
+        .notification.error {
+            border-left: 8px solid #f43f5e;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(500px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .info-box {
+            background: linear-gradient(135deg, #fed7aa, #fdba74);
+            border-left: 6px solid #fb923c;
+            padding: 25px;
+            border-radius: 15px;
+            margin-top: 30px;
+            box-shadow: 0 4px 15px rgba(251, 146, 60, 0.2);
+        }
+        
+        .info-box h3 {
+            color: #7c2d12;
+            margin-bottom: 15px;
+            font-weight: 900;
+            font-size: 1.2em;
+        }
+        
+        .info-box ul {
+            margin-left: 25px;
+            color: #7c2d12;
+        }
+        
+        .info-box li {
+            margin: 10px 0;
+            font-weight: 600;
+            line-height: 1.6;
+        }
+        
+        .fan-status-display {
+            text-align: center;
+            margin: 30px 0;
+            padding: 25px;
+            background: linear-gradient(135deg, #f0fdfa, #ccfbf1);
+            border-radius: 15px;
+            border: 3px solid #5eead4;
+        }
+        
+        .fan-speed-large {
+            font-size: 3em;
+            font-weight: 900;
+            background: linear-gradient(135deg, #0891b2, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+        
+        .fan-status-text {
+            font-size: 1.3em;
+            color: #0e7490;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌡️ Smart Temperature Control Dashboard</h1>
+            <p>Assignment 2 - IoT & Cloud Computing | Real-Time Monitoring with LED Indicators</p>
+            <div style="margin-top: 15px;">
+                <span style="background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px; font-weight: 600;">
+                    👤 Logged in as: {{ username }}
+                </span>
+                <a href="/logout" style="margin-left: 15px; background: rgba(239, 68, 68, 0.9); padding: 8px 20px; border-radius: 20px; color: white; text-decoration: none; font-weight: 700; transition: all 0.3s;" onmouseover="this.style.background='rgba(220, 38, 38, 1)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.9)'">
+                    🔒 Logout
+                </a>
+            </div>
+        </div>
+        
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="status-light online" id="statusLight"></div>
+                <div>
+                    <strong style="font-size: 1.1em; color: #0c4a6e;" id="statusText">System Online</strong>
+                    <div style="font-size: 0.95em; color: #64748b; margin-top: 5px;" id="lastUpdate">Connecting...</div>
+                </div>
+            </div>
+            <div class="mode-badge auto" id="modeBadge">
+                AUTO MODE
+            </div>
+        </div>
+        
+        <div class="grid">
+            <!-- Temperature Card -->
+            <div class="card">
+                <h2>🌡️ Temperature Monitor</h2>
+                <div class="sensor-value temp-value" id="tempValue">--°C</div>
+                <div class="sensor-label">Current Room Temperature</div>
+                <div class="threshold-info">
+                    <p>🎯 Control Threshold: <span class="threshold-value" id="tempThreshold">28.0°C</span></p>
+                    <p style="font-size: 0.95em; margin-top: 12px; line-height: 1.8;">
+                        <strong>Above 28°C:</strong> Fan ON + Red LED 🔴<br>
+                        <strong>At/Below 28°C:</strong> Fan OFF + Blue LED 🔵
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Humidity Card -->
+            <div class="card">
+                <h2>💧 Humidity Monitor</h2>
+                <div class="sensor-value humidity-value" id="humidityValue">--%</div>
+                <div class="sensor-label">Current Room Humidity</div>
+                <div class="threshold-info">
+                    <p style="color: #64748b; font-size: 1em;">
+                        📊 Environmental monitoring active<br>
+                        Data logged every 5 seconds
+                    </p>
+                </div>
+            </div>
+            
+            <!-- LED & Fan Status Card -->
+            <div class="card">
+                <h2>💡 System Status</h2>
+                
+                <!-- LED Indicators -->
+                <div class="led-status">
+                    <div class="led-indicator">
+                        <div class="led-light red off" id="ledRed"></div>
+                        <div class="led-label">🔴 Red LED<br><span style="font-size: 0.85em; font-weight: 500;">High Temp Alert</span></div>
+                    </div>
+                    <div class="led-indicator">
+                        <div class="led-light blue" id="ledBlue"></div>
+                        <div class="led-label">🔵 Blue LED<br><span style="font-size: 0.85em; font-weight: 500;">Normal Status</span></div>
+                    </div>
+                </div>
+                
+                <div class="fan-status-display">
+                    <div class="fan-speed-large" id="fanSpeedLarge">0%</div>
+                    <div class="fan-status-text" id="fanStatusText">Fan is OFF</div>
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-on" id="btnFanOn">Turn ON</button>
+                    <button class="btn btn-off" id="btnFanOff">Turn OFF</button>
+                    <button class="btn btn-auto" id="btnAuto">Auto Mode</button>
+                </div>
+                
+                <div class="info-box">
+                    <h3>💡 LED Indicator Guide</h3>
+                    <ul>
+                        <li><strong>Red LED Blinking:</strong> Temperature above threshold</li>
+                        <li><strong>Blue LED Blinking:</strong> Temperature normal</li>
+                        <li><strong>Auto Mode:</strong> System controls automatically</li>
+                        <li><strong>Manual Mode:</strong> User controls fan</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Settings Card -->
+        <div class="card">
+            <h2>⚙️ System Configuration</h2>
+            <p style="margin-bottom: 25px; color: #64748b; font-weight: 600; font-size: 1.05em;">
+                Configure temperature threshold for automatic fan control
+            </p>
+            <form class="settings-form" id="settingsForm">
+                <div class="form-group">
+                    <label for="inputTempHigh">🎯 Temperature Threshold (°C)</label>
+                    <input type="number" id="inputTempHigh" step="0.5" value="28.0" required>
+                    <small>Fan activates when temperature exceeds this value</small>
+                </div>
+                
+                <button type="submit" class="btn btn-auto" style="font-size: 1.15em;">
+                    💾 Save Configuration
+                </button>
+            </form>
+            
+            <div class="info-box">
+                <h3>📖 System Operation</h3>
+                <ul>
+                    <li>Temperature exceeds threshold → Fan ON at 40% + Red LED</li>
+                    <li>Temperature drops to/below threshold → Fan OFF + Blue LED</li>
+                    <li>Smooth PWM ramping prevents power spikes</li>
+                    <li>LED indicators provide visual status feedback</li>
+                    <li>All data logged to database in real-time</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Chart Card -->
+        <div class="card chart-card">
+            <h2>📊 Live Temperature & Fan History</h2>
+            <div class="chart-container">
+                <canvas id="tempChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Notification -->
+    <div class="notification" id="notification">
+        <div style="font-size: 2.8em;" id="notificationIcon">✓</div>
+        <div>
+            <div style="font-weight: 800; margin-bottom: 8px; font-size: 1.15em; color: #0c4a6e;" id="notificationTitle">Success</div>
+            <div style="color: #64748b; font-weight: 500;" id="notificationMessage">Action completed</div>
+        </div>
+    </div>
+    
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        
+        // Chart setup
+        let tempChart;
+        let chartData = {
+            labels: [],
+            temperature: [],
+            fanSpeed: []
+        };
+        
+        // Initialize chart
+        function initChart() {
+            const ctx = document.getElementById('tempChart').getContext('2d');
+            tempChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [
+                        {
+                            label: 'Temperature (°C)',
+                            data: chartData.temperature,
+                            borderColor: '#f43f5e',
+                            backgroundColor: 'rgba(244, 63, 94, 0.15)',
+                            tension: 0.4,
+                            fill: true,
+                            borderWidth: 4,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#f43f5e'
+                        },
+                        {
+                            label: 'Fan Speed (%)',
+                            data: chartData.fanSpeed,
+                            borderColor: '#0891b2',
+                            backgroundColor: 'rgba(8, 145, 178, 0.15)',
+                            tension: 0.4,
+                            fill: true,
+                            yAxisID: 'y1',
+                            borderWidth: 4,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#0891b2'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: 'Temperature (°C)',
+                                font: { size: 15, weight: 'bold' },
+                                color: '#0c4a6e'
+                            },
+                            grid: {
+                                color: '#e0f2fe'
+                            },
+                            ticks: {
+                                font: { weight: 'bold' },
+                                color: '#0e7490'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            min: 0,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Fan Speed (%)',
+                                font: { size: 15, weight: 'bold' },
+                                color: '#0c4a6e'
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            },
+                            ticks: {
+                                font: { weight: 'bold' },
+                                color: '#0e7490'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: '#f0f9ff'
+                            },
+                            ticks: {
+                                font: { weight: 'bold' },
+                                color: '#64748b'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: { size: 14, weight: 'bold' },
+                                padding: 20,
+                                color: '#0c4a6e'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Update chart
+        function updateChart(temp, fanSpeed, timestamp) {
+            const time = new Date(timestamp).toLocaleTimeString();
+            
+            chartData.labels.push(time);
+            chartData.temperature.push(temp);
+            chartData.fanSpeed.push(fanSpeed);
+            
+            // Keep only last 50 points
+            if (chartData.labels.length > 50) {
+                chartData.labels.shift();
+                chartData.temperature.shift();
+                chartData.fanSpeed.shift();
+            }
+            
+            tempChart.update();
+        }
+        
+        // Show notification
+        function showNotification(title, message, type = 'success') {
+            const notification = document.getElementById('notification');
+            const icon = document.getElementById('notificationIcon');
+            const titleEl = document.getElementById('notificationTitle');
+            const messageEl = document.getElementById('notificationMessage');
+            
+            notification.className = 'notification show ' + type;
+            icon.textContent = type === 'success' ? '✓' : '✕';
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3500);
+        }
+        
+        // Update UI with sensor data
+        function updateUI(data) {
+            // Temperature
+            document.getElementById('tempValue').textContent = data.temperature.toFixed(1) + '°C';
+            
+            // Humidity
+            document.getElementById('humidityValue').textContent = data.humidity.toFixed(1) + '%';
+            
+            // Threshold
+            document.getElementById('tempThreshold').textContent = data.temp_high.toFixed(1) + '°C';
+            
+            // Fan speed
+            const fanSpeed = data.fan_speed || 0;
+            document.getElementById('fanSpeedLarge').textContent = fanSpeed + '%';
+            
+            // Fan status text
+            const fanText = document.getElementById('fanStatusText');
+            if (fanSpeed > 0) {
+                fanText.textContent = `Fan Running at ${fanSpeed}% Power`;
+                fanText.style.color = '#10b981';
+            } else {
+                fanText.textContent = 'Fan is OFF';
+                fanText.style.color = '#64748b';
+            }
+            
+            // LED indicators
+            const ledRed = document.getElementById('ledRed');
+            const ledBlue = document.getElementById('ledBlue');
+            
+            if (data.temperature > data.temp_high) {
+                // High temp - RED LED blinking
+                ledRed.className = 'led-light red blinking';
+                ledBlue.className = 'led-light blue off';
+                
+                // Status light alarm
+                document.getElementById('statusLight').className = 'status-light alarm';
+                document.getElementById('statusText').textContent = '⚠️ Temperature High!';
+            } else {
+                // Normal temp - BLUE LED blinking
+                ledRed.className = 'led-light red off';
+                ledBlue.className = 'led-light blue blinking';
+                
+                // Status light online
+                document.getElementById('statusLight').className = 'status-light online';
+                document.getElementById('statusText').textContent = '✓ System Normal';
+            }
+            
+            // Mode badge
+            const modeBadge = document.getElementById('modeBadge');
+            if (data.auto_mode) {
+                modeBadge.textContent = 'AUTO MODE';
+                modeBadge.className = 'mode-badge auto';
+            } else {
+                modeBadge.textContent = 'MANUAL MODE';
+                modeBadge.className = 'mode-badge manual';
+            }
+            
+            // Last update
+            const updateTime = new Date(data.timestamp).toLocaleTimeString();
+            document.getElementById('lastUpdate').textContent = 'Last updated: ' + updateTime;
+            
+            // Update chart
+            updateChart(data.temperature, fanSpeed, data.timestamp);
+        }
+        
+        // Socket.IO events
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            showNotification('Connected', 'System is online and monitoring', 'success');
+        });
+        
+        socket.on('sensor_update', (data) => {
+            updateUI(data);
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            document.getElementById('statusText').textContent = 'Disconnected';
+            document.getElementById('statusLight').className = 'status-light';
+        });
+        
+        // Fan control buttons
+        document.getElementById('btnFanOn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/fan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'on' })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showNotification('Fan Control', 'Fan manually activated', 'success');
+                }
+            } catch (error) {
+                showNotification('Error', 'Failed to control fan', 'error');
+            }
+        });
+        
+        document.getElementById('btnFanOff').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/fan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'off' })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showNotification('Fan Control', 'Fan manually deactivated', 'success');
+                }
+            } catch (error) {
+                showNotification('Error', 'Failed to control fan', 'error');
+            }
+        });
+        
+        document.getElementById('btnAuto').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/fan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'auto' })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showNotification('Mode Changed', 'Automatic control enabled', 'success');
+                }
+            } catch (error) {
+                showNotification('Error', 'Failed to change mode', 'error');
+            }
+        });
+        
+        // Settings form
+        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const tempHigh = parseFloat(document.getElementById('inputTempHigh').value);
+            
+            try {
+                const response = await fetch('/api/thresholds', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        temp_high: tempHigh,
+                        temp_low: 25.0  // Not used but kept for compatibility
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    showNotification('Settings Saved', 
+                        `New threshold: ${tempHigh}°C`, 'success');
+                }
+            } catch (error) {
+                showNotification('Error', 'Failed to save settings', 'error');
+            }
+        });
+        
+        // Load initial data
+        async function loadInitialData() {
+            try {
+                const response = await fetch('/api/current');
+                const data = await response.json();
+                if (data.temperature !== null) {
+                    updateUI(data);
+                    document.getElementById('inputTempHigh').value = data.temp_high;
+                }
+            } catch (error) {
+                console.error('Failed to load initial data:', error);
+            }
+        }
+        
+        // Initialize
+        initChart();
+        loadInitialData();
+    </script>
+</body>
+</html>

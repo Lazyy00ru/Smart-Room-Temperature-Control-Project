@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Smart Temperature Control</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0c4a6e 0%, #0891b2 40%, #06b6d4 70%, #fb923c 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .login-container {
+            background: white;
+            padding: 50px 40px;
+            border-radius: 25px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 450px;
+            animation: fadeInScale 0.6s ease;
+        }
+        
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        
+        .login-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .login-header h1 {
+            font-size: 2.2em;
+            background: linear-gradient(135deg, #0891b2, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+        
+        .login-header p {
+            color: #64748b;
+            font-size: 1.05em;
+            font-weight: 500;
+        }
+        
+        .logo {
+            font-size: 4em;
+            margin-bottom: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 10px;
+            color: #0c4a6e;
+            font-weight: 700;
+            font-size: 1.05em;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 18px;
+            border: 3px solid #a5f3fc;
+            border-radius: 12px;
+            font-size: 1.1em;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            background: #f0fdfa;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #0891b2;
+            box-shadow: 0 0 0 4px rgba(8, 145, 178, 0.15);
+            background: white;
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #0891b2, #0e7490);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.15em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 6px 20px rgba(8, 145, 178, 0.3);
+        }
+        
+        .login-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(8, 145, 178, 0.4);
+        }
+        
+        .login-btn:active {
+            transform: translateY(0);
+        }
+        
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            font-weight: 600;
+            animation: slideDown 0.4s ease;
+        }
+        
+        .alert-error {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            color: #991b1b;
+            border-left: 5px solid #ef4444;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .info-box {
+            background: linear-gradient(135deg, #ecfeff, #cffafe);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            border-left: 5px solid #0891b2;
+            text-align: center;
+        }
+        
+        .info-box p {
+            color: #0c4a6e;
+            font-weight: 600;
+            margin: 5px 0;
+            font-size: 0.95em;
+        }
+        
+        .info-box .credentials {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            color: #0891b2;
+            font-weight: 700;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #64748b;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <div class="logo">🌡️</div>
+            <h1>Temperature Control</h1>
+            <p>IoT Cloud Monitoring System</p>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        ⚠️ {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <form method="POST" action="/login">
+            <div class="form-group">
+                <label for="username">👤 Username</label>
+                <input 
+                    type="text" 
+                    id="username" 
+                    name="username" 
+                    required 
+                    autofocus
+                    placeholder="Enter username">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">🔒 Password</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    name="password" 
+                    required
+                    placeholder="Enter password">
+            </div>
+            
+            <button type="submit" class="login-btn">
+                🔓 Login to Dashboard
+            </button>
+        </form>
+        
+        <div class="info-box">
+            <p><strong>📌 Default Login Credentials:</strong></p>
+            <div class="credentials">
+                Username: <strong>admin</strong><br>
+                Password: <strong>iot2026</strong>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p><strong>Student:</strong> Su Min Wai (24025201)</p>
+            <p>Assignment 2 - IoT & Cloud Computing</p>
+        </div>
+    </div>
+</body>
+</html>
