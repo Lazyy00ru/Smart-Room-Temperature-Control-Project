@@ -254,7 +254,3 @@ Raspberry Pi (App2.py)
 - All authentication passwords are stored as bcrypt hashes via Werkzeug — plain-text passwords are never stored.
 - The `SECRET_KEY` in `app.config` should be changed to a strong random value for production deployments.
 - Monitor your AWS Billing Dashboard regularly; some services (DynamoDB, CloudWatch) may incur charges after free-tier limits.
-
----
-
-*Assignment 2 – IoT & Cloud Computing | Su Min Wai*
